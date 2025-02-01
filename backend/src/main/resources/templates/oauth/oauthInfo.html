@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>OAuth2 로그인 정보</title>
+    <script>
+        function displayUserInfo() {
+            let userInfo = JSON.parse(document.getElementById("userInfo").textContent);
+            document.getElementById("jsonOutput").textContent = JSON.stringify(userInfo, null, 2);
+        }
+    </script>
+</head>
+<body onload="displayUserInfo()">
+<h2>OAuth2 로그인 정보</h2>
+
+<pre id="jsonOutput"></pre>
+
+<!-- JSON 데이터 Thymeleaf에서 숨겨진 div로 전달 -->
+<div id="userInfo" style="display:none;" th:text="${userInfo}"></div>
+
+</body>
+</html>

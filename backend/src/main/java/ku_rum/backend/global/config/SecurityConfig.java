@@ -1,6 +1,7 @@
 package ku_rum.backend.global.config;
 
 import ku_rum.backend.domain.oauth.application.CustomOAuth2UserService;
+import ku_rum.backend.domain.oauth.handler.CustomOAuth2SuccessHandler;
 import ku_rum.backend.domain.user.domain.repository.UserRepository;
 import ku_rum.backend.global.security.jwt.CustomUserDetails;
 import ku_rum.backend.global.security.jwt.JwtTokenAuthenticationFilter;
@@ -23,8 +24,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import java.util.Collection;
-
 @EnableWebSecurity
 @Configuration
 @RequiredArgsConstructor
@@ -32,6 +31,7 @@ public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisUtil redisUtil;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final CustomOAuth2SuccessHandler customOAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -44,10 +44,8 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/api/auth/login",
                         "/api/v1/users",
-                        "/pre-oauth/info" ,
                         "/favicon.ico",
                         "/",
-                        "/pre-oauth/**",
                         "/login",
                         "/oauth2/authorization/**"
                 ).permitAll()
@@ -55,17 +53,19 @@ public class SecurityConfig {
         // JWT 토큰 인증 필터 추가
         http.addFilterBefore(new JwtTokenAuthenticationFilter(jwtTokenProvider, redisUtil), UsernamePasswordAuthenticationFilter.class);
 
-//        http.logout(logout -> logout.logoutSuccessUrl("/"));
+//      http.logout(logout -> logout.logoutSuccessUrl("/"));
         http.oauth2Login(oauth2 -> oauth2
-                //.loginPage("/pre-oauth/info")
-                .defaultSuccessUrl("/oauth/loginInfo", true) // 로그인 성공 후 이동할 URL
                 .userInfoEndpoint(userInfo -> userInfo
                         .userService(customOAuth2UserService) // 로그인 성공 후 사용할 서비스 로직 설정
                 )
+                //.successHandler(customOAuth2SuccessHandler)
+                .defaultSuccessUrl("/oauth/loginInfo", true) // 로그인 성공 후 이동할 URL
+
         );
 
         http.sessionManagement((session) -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionCreationPolicy(SessionCreationPolicy.ALWAYS));
+
         return http.build();
     }
 

@@ -45,6 +45,8 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+        log.info("oauth2 로그인 성공 유저 정보 로딩 시작");
+
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
 
         OAuth2User oAuth2User;
@@ -77,6 +79,8 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         customAttributes.put("name", userProfile.getUsername());
         customAttributes.put("email", userProfile.getEmail());
         customAttributes.put("accessToken", tokenResponse.accessToken());
+
+        log.info("유저 정보: {}", oAuth2User.getAttributes());
 
         return new DefaultOAuth2User(
                 Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),

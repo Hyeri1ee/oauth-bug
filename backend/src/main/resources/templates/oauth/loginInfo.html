@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>OAuth2 로그인 정보</title>
+    <script>
+        function displayUserInfo() {
+            let userInfo = JSON.parse(document.getElementById("userInfo").textContent);
+            document.getElementById("jsonOutput").textContent = JSON.stringify(userInfo, null, 2);
+        }
+    </script>
+</head>
+<body onload="displayUserInfo()">
+<h2>OAuth2 로그인 정보</h2>
+
+<pre id="jsonOutput"></pre>
+
+<!-- JSON 데이터 Thymeleaf에서 숨겨진 div로 전달 -->
+<div id="userInfo" style="display:none;" th:text="${userInfo}"></div>
+
+<! -- 학번 학과 입력 -- >
+<form action="/pre-oauth/info" method="post">
+    <!-- 학부 설정 -->
+    <label for="department">Department:</label>
+    <input type="text" id="department" name="department" required>
+
+    <!-- 학번 설정 -->
+    <label for="studentId">StudentId:</label>
+    <input type="text" id="studentId" name="studentId" required>
+
+    <button type="submit">Submit</button>
+</form>
+</body>
+</html>
