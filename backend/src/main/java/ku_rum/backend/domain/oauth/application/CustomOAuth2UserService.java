@@ -2,14 +2,20 @@ package ku_rum.backend.domain.oauth.application;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import ku_rum.backend.domain.department.domain.Department;
+import ku_rum.backend.domain.department.domain.repository.DepartmentRepository;
 import ku_rum.backend.domain.oauth.domain.OAuthAttributes;
 import ku_rum.backend.domain.oauth.domain.UserProfile;
 import ku_rum.backend.domain.oauth.util.TokenValidator;
+import ku_rum.backend.domain.user.application.UserService;
 import ku_rum.backend.domain.user.domain.User;
 import ku_rum.backend.domain.user.domain.repository.UserRepository;
 import ku_rum.backend.global.security.jwt.CustomUserDetails;
 import ku_rum.backend.global.security.jwt.JwtTokenProvider;
 import ku_rum.backend.global.security.jwt.TokenResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -28,106 +34,90 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
-
-    public CustomOAuth2UserService(UserRepository userRepository, JwtTokenProvider jwtTokenProvider) {
-        this.userRepository = userRepository;
-        this.jwtTokenProvider = jwtTokenProvider;
-    }
-
+    private final HttpServletRequest request;
+    private final DepartmentRepository departmentRepository;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+        String registrationId = userRequest.getClientRegistration().getRegistrationId();
 
-        OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
-        log.info("userRequest getClientRegistration : {}", userRequest.getClientRegistration());
-        OAuth2User oAuth2User = delegate.loadUser(userRequest);
+        OAuth2User oAuth2User;
+        if (registrationId.equals("naver")){
+            oAuth2User = new DefaultOAuth2UserServiceNaver().loadUser(userRequest);
+        } else {
+            oAuth2User = new DefaultOAuth2UserService().loadUser(userRequest);
+        }
 
-        String registrationId = userRequest.getClientRegistration().getRegistrationId(); // 로그인을 수행한 서비스의 이름
-        String userNameAttributeName = userRequest
-                .getClientRegistration()
-                .getProviderDetails()
-                .getUserInfoEndpoint()
-                .getUserNameAttributeName();// PK가 되는 정보
-
-        log.info("Registration ID: {}", registrationId);
-        log.info("UserName Attribute Name: {}", userNameAttributeName);
-
-        // Attributes 로깅
+        // Get original attributes
         Map<String, Object> attributes = oAuth2User.getAttributes();
-        log.info("Attributes received: {}", attributes);
+        log.debug("Original OAuth2 attributes: {}", attributes);
 
+        // Extract user profile using OAuthAttributes enum
         UserProfile userProfile = OAuthAttributes.extract(registrationId, attributes);
 
-        // 사용자 저장 또는 업데이트
+        // Update or create user
         User user = updateOrPrepareUser(userProfile);
 
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
+        // Create authentication
+        Authentication authentication = createAuthentication(user);
+
+        // Generate token
+        TokenResponse tokenResponse = jwtTokenProvider.createToken(authentication);
+        logTokenClaims(tokenResponse.accessToken());
+
+        // Prepare attributes for OAuth2User
+        Map<String, Object> customAttributes = new HashMap<>();
+        customAttributes.put("id", userProfile.getId());
+        customAttributes.put("name", userProfile.getUsername());
+        customAttributes.put("email", userProfile.getEmail());
+        customAttributes.put("accessToken", tokenResponse.accessToken());
+
+        return new DefaultOAuth2User(
+                Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
+                customAttributes,
+                "id"  // Using id as the name attribute key consistently
+        );
+    }
+
+    private Authentication createAuthentication(User user) {
+        return new UsernamePasswordAuthenticationToken(
                 CustomUserDetails.of(
                         user.getId(),
-                        userProfile.getUsername(),
+                        user.getNickname(),
                         Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")),
                         user.getPassword()
                 ),
                 null,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
         );
+    }
 
-        // TokenResponse를 통해 Access Token만 가져옴
-        TokenResponse tokenResponse = jwtTokenProvider.createToken(authentication);
-        String accessToken = tokenResponse.accessToken(); // Access Token만 추출
-
-        // Access Token 디코딩 및 로그 출력
+    private void logTokenClaims(String accessToken) {
         try {
             Jws<Claims> jwsClaims = jwtTokenProvider.getClaimsFromToken(accessToken);
-            Claims claims = jwsClaims.getBody(); // Claims 추출
-            log.info("Access Token Claims: {}", claims);
+            log.debug("Access Token Claims: {}", jwsClaims.getBody());
         } catch (Exception e) {
             log.error("Failed to parse Access Token: {}", e.getMessage());
         }
-
-        // 사용자 정보와 Access Token 반환
-        Map<String, Object> customAttributes = getCustomAttributes(registrationId, userNameAttributeName, attributes, userProfile);
-        customAttributes.put("accessToken", accessToken);
-
-        return new DefaultOAuth2User(
-                Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
-                customAttributes,
-                userNameAttributeName
-        );
-    }
-
-    private Map<String, Object> getCustomAttributes(String registrationId, String userNameAttributeName,
-                                                    Map<String, Object> attributes, UserProfile userProfile) {
-        Map<String, Object> customAttributes = new HashMap<>();
-
-        // 기존 OAuth2에서 가져온 attributes를 추가
-        customAttributes.putAll(attributes);
-
-        // Custom attributes 추가
-        customAttributes.put("registrationId", registrationId); // 서비스 제공자 이름 (예: google, github 등)
-        customAttributes.put("userNameAttributeName", userNameAttributeName); // PK로 사용되는 attribute 이름
-        customAttributes.put("name", userProfile.getUsername()); // 사용자 이름
-        customAttributes.put("email", userProfile.getEmail()); // 사용자 이메일
-        customAttributes.put("provider", registrationId); // OAuth 제공자 (예: google, github 등)
-
-        return customAttributes;
     }
 
     private User updateOrPrepareUser(UserProfile userProfile) {
         return userRepository.findUserByEmail(userProfile.getEmail())
+                .map(existingUser -> {
+                    log.debug("Updating existing user: {}", existingUser.getEmail());
+                    // Update existing user properties if needed
+                    return existingUser;
+                })
                 .orElseGet(() -> {
-                    // 신규 사용자인 경우 User 객체만 생성 (저장은 하지 않음)
-                    User user = userProfile.toEntity();
-                    log.info("New user prepared: {}", user);
-                    return user; // 저장 없이 반환
+                    log.debug("Creating new user with email: {}", userProfile.getEmail());
+                    return userProfile.toEntity();
                 });
-//                .orElseGet(() -> userRepository.save(userProfile.toEntity()));
     }
+
 }
-
-

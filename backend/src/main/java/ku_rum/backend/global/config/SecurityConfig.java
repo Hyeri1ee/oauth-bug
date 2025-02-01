@@ -41,13 +41,23 @@ public class SecurityConfig {
 
         // 요청에 대한 권한 설정
         http.authorizeHttpRequests((auth) -> auth
-                .requestMatchers("/api/auth/login", "/api/v1/users").permitAll()
+                .requestMatchers(
+                        "/api/auth/login",
+                        "/api/v1/users",
+                        "/pre-oauth/info" ,
+                        "/favicon.ico",
+                        "/",
+                        "/pre-oauth/**",
+                        "/login",
+                        "/oauth2/authorization/**"
+                ).permitAll()
                 .anyRequest().authenticated());
         // JWT 토큰 인증 필터 추가
         http.addFilterBefore(new JwtTokenAuthenticationFilter(jwtTokenProvider, redisUtil), UsernamePasswordAuthenticationFilter.class);
 
 //        http.logout(logout -> logout.logoutSuccessUrl("/"));
         http.oauth2Login(oauth2 -> oauth2
+                //.loginPage("/pre-oauth/info")
                 .defaultSuccessUrl("/oauth/loginInfo", true) // 로그인 성공 후 이동할 URL
                 .userInfoEndpoint(userInfo -> userInfo
                         .userService(customOAuth2UserService) // 로그인 성공 후 사용할 서비스 로직 설정

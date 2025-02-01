@@ -11,20 +11,30 @@ import java.util.function.Function;
 @Slf4j
 public enum OAuthAttributes {
 
-
     GOOGLE("google", (attributes) -> {
         UserProfile userProfile = new UserProfile();
         userProfile.setUserName((String) attributes.get("name"));
         userProfile.setEmail((String) attributes.get("email"));
+        // Google의 경우 sub를 id로 사용
+        userProfile.setId((String) attributes.get("sub"));
         return userProfile;
     }),
 
     NAVER("naver", (attributes) -> {
         UserProfile userProfile = new UserProfile();
+//        Map<String, Object> response = (Map<String, Object>) attributes.get("a");
+//
+//        if (response == null) {
+//            log.error("Naver response is null. Attributes received: {}", attributes);
+//            throw new IllegalArgumentException("Naver response is missing in attributes");
+//        }
 
-        Map<String, Object> response = (Map<String, Object>) attributes.get("response");
-        userProfile.setUserName((String) response.get("name"));
-        userProfile.setEmail((String) response.get("email"));
+        userProfile.setUserName((String) attributes.get("name"));
+        userProfile.setEmail((String) attributes.get("email"));
+        // Naver의 경우 response 내부의 id를 사용
+        userProfile.setId((String) attributes.get("id"));
+
+        log.debug("Naver UserProfile created: {}", userProfile);
         return userProfile;
     }),
 
@@ -35,11 +45,13 @@ public enum OAuthAttributes {
         UserProfile userProfile = new UserProfile();
         userProfile.setUserName((String) profile.get("nickname"));
         userProfile.setEmail((String) account.get("email"));
+        // Kakao의 경우 id는 Long 타입으로 제공됨
+        userProfile.setId(String.valueOf(attributes.get("id")));
         return userProfile;
     });
 
-    private final String registrationId; // OAuth 플랫폼 이름
-    private final Function<Map<String, Object>, UserProfile> of; // 사용자 정보를 UserProfile로 변환하는 함수
+    private final String registrationId;
+    private final Function<Map<String, Object>, UserProfile> of;
 
     OAuthAttributes(String registrationId, Function<Map<String, Object>, UserProfile> of) {
         this.registrationId = registrationId;
@@ -47,12 +59,56 @@ public enum OAuthAttributes {
     }
 
     public static UserProfile extract(String registrationId, Map<String, Object> attributes) {
+        log.debug("Extracting UserProfile for registration ID: {} with attributes: {}", registrationId, attributes);
         return Arrays.stream(OAuthAttributes.values())
                 .filter(value -> value.registrationId.equals(registrationId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unsupported OAuth Provider"))
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported OAuth Provider: " + registrationId))
                 .of.apply(attributes);
     }
+//
+//
+//    GOOGLE("google", (attributes) -> {
+//        UserProfile userProfile = new UserProfile();
+//        userProfile.setUserName((String) attributes.get("name"));
+//        userProfile.setEmail((String) attributes.get("email"));
+//        return userProfile;
+//    }),
+//
+//    NAVER("naver", (attributes) -> {
+//        UserProfile userProfile = new UserProfile();
+//
+//        Map<String, Object> response = (Map<String, Object>) attributes.get("response");
+//        userProfile.setUserName((String) response.get("name"));
+//        userProfile.setEmail((String) response.get("email"));
+//        return userProfile;
+//    }),
+//
+//    KAKAO("kakao", (attributes) -> {
+//        Map<String, Object> account = (Map<String, Object>) attributes.get("kakao_account");
+//        Map<String, Object> profile = (Map<String, Object>) account.get("profile");
+//
+//        UserProfile userProfile = new UserProfile();
+//        userProfile.setUserName((String) profile.get("nickname"));
+//        userProfile.setEmail((String) account.get("email"));
+//        return userProfile;
+//    });
+//
+//    private final String registrationId; // OAuth 플랫폼 이름
+//    private final Function<Map<String, Object>, UserProfile> of; // 사용자 정보를 UserProfile로 변환하는 함수
+//
+//    OAuthAttributes(String registrationId, Function<Map<String, Object>, UserProfile> of) {
+//        this.registrationId = registrationId;
+//        this.of = of;
+//    }
+//
+//    public static UserProfile extract(String registrationId, Map<String, Object> attributes) {
+//        return Arrays.stream(OAuthAttributes.values())
+//                .filter(value -> value.registrationId.equals(registrationId))
+//                .findFirst()
+//                .orElseThrow(() -> new IllegalArgumentException("Unsupported OAuth Provider"))
+//                .of.apply(attributes);
+//    }
 
 //    private final Map<String, Object> attributes;
 //    private final String nameAttributeKey;
