@@ -85,6 +85,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         );
     }
 
+    
     private Authentication createAuthentication(User user) {
         return new UsernamePasswordAuthenticationToken(
                 CustomUserDetails.of(
