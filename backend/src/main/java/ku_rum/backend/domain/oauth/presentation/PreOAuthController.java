@@ -11,17 +11,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @Slf4j
 @Controller
-@RequestMapping("/pre-oauth")
+@RequestMapping("/oauth")
 public class PreOAuthController {
 
-  @GetMapping("/info")
+  @GetMapping("/loginInfo")
   public String showPreOAuthForm() {
     return "preoauthinfo";
   }
 
-
-  @PostMapping("/info")
-  public String processPreOAuthInfo(
+  @PostMapping("/loginInfo")
+  public String processOAuthInfo(
           @RequestParam String department,
           @RequestParam String studentId,
           HttpServletResponse response
