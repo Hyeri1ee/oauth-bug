@@ -16,7 +16,6 @@ public class BuildingCategoryInitializer {
     Category category2 = categories.get(2);
     Category category3 = categories.get(3);
 
-
     buildingCategories.add(
             BuildingCategory.of(building0, category1)
     );
