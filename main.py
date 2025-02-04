@@ -4,7 +4,7 @@ from github import Github
 from github import Auth
 import os
 
-private_access_token = os.environ['GITHUB_TOKEN']
+private_access_token = os.environ['PASSWORD']
 DISCORD_URL = os.environ['DISCORD_WEBHOOK']
 auth = Auth.Token(private_access_token)
 
