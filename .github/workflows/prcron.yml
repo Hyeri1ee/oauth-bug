@@ -1,7 +1,8 @@
 name: Remaining PR
 on:
   schedule:
-    - cron: '*/1 * * * *'
+    - cron: '0 10 * * *'  # 매일 09:00 UTC (한국 시간 16:00)
+
 permissions:
   contents: read
 jobs:
