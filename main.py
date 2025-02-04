@@ -4,8 +4,16 @@ from github import Github
 from github import Auth
 import os
 
+
 private_access_token = os.environ['PASSWORD']
 DISCORD_URL = os.environ['DISCORD_WEBHOOK']
+
+if not private_access_token:
+    raise ValueError("환경 변수 'PASSWORD'가 설정되지 않았습니다.")
+
+if not DISCORD_URL:
+    raise ValueError("환경 변수 'DISCORD_WEBHOOK'이 설정되지 않았습니다.")
+
 auth = Auth.Token(private_access_token)
 
 repo_info = "Hyeri1ee/oauth-bug"
